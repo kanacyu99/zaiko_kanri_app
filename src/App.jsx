@@ -14,8 +14,38 @@ import {
   Save,
   X,
   Plus,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
+
+// Helper for CSV Download
+const downloadCSV = (filename, headers, rows) => {
+  const escapeCSV = (val) => {
+    if (val === null || val === undefined) return '';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.map(escapeCSV).join(','))
+  ].join('\n');
+
+  const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+  const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  alert('CSVを出力しました');
+};
 
 // Sample Data
 const initialItems = [
@@ -195,8 +225,39 @@ const Inventory = ({ items, getStatus }) => {
     return matchesSearch && matchesCategory && matchesLocation && matchesLowStock;
   });
 
+  const handleExport = () => {
+    const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const filename = `inventory_current_${today}.csv`;
+    const headers = ['品名', '分類', '現在庫数', '単位', '最低在庫数', '標準在庫数', '保管場所', '発注先', '状態', '備考'];
+    
+    const rows = filteredItems.map(item => {
+      const status = getStatus(item);
+      return [
+        item.name,
+        item.category,
+        item.currentStock,
+        item.unit,
+        item.minStock,
+        item.targetStock,
+        item.location,
+        item.supplier,
+        status.label,
+        item.note
+      ];
+    });
+
+    downloadCSV(filename, headers, rows);
+  };
+
   return (
     <div className="inventory">
+      <div className="action-bar">
+        <h2>現在庫一覧</h2>
+        <button className="export-btn" onClick={handleExport}>
+          <Download size={20} /> 現在庫CSV出力
+        </button>
+      </div>
+
       <div className="filter-card">
         <div className="search-box">
           <Search size={18} className="search-icon" />
@@ -539,11 +600,35 @@ const Master = ({ items, setItems }) => {
     setIsEditing(null);
   };
 
+  const handleExport = () => {
+    const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const filename = `inventory_master_${today}.csv`;
+    const headers = ['品名', '分類', '単位', '保管場所', '最低在庫数', '標準在庫数', '発注先', '備考'];
+    
+    const rows = items.map(item => [
+      item.name,
+      item.category,
+      item.unit,
+      item.location,
+      item.minStock,
+      item.targetStock,
+      item.supplier,
+      item.note
+    ]);
+
+    downloadCSV(filename, headers, rows);
+  };
+
   return (
     <div className="master-data">
       <div className="action-bar">
         <h2>物品マスタ登録</h2>
-        <button className="add-btn" onClick={handleAddNew}><Plus size={20} /> 新規登録</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="export-btn" onClick={handleExport}>
+            <Download size={20} /> 物品マスタCSV出力
+          </button>
+          <button className="add-btn" onClick={handleAddNew}><Plus size={20} /> 新規登録</button>
+        </div>
       </div>
 
       {isEditing && (
@@ -630,10 +715,33 @@ const Master = ({ items, setItems }) => {
 };
 
 const HistoryLog = ({ history }) => {
+  const handleExport = () => {
+    const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const filename = `inventory_history_${today}.csv`;
+    const headers = ['日付', '区分', '品名', '数量', '登録者または使用者', '保管場所', '備考'];
+    
+    const rows = history.map(log => [
+      log.date,
+      log.type,
+      log.itemName,
+      log.quantity,
+      log.user,
+      log.location,
+      log.note
+    ]);
+
+    downloadCSV(filename, headers, rows);
+  };
+
   return (
     <div className="history">
-      <div className="section-card">
+      <div className="action-bar">
         <h2>入出庫履歴</h2>
+        <button className="export-btn" onClick={handleExport}>
+          <Download size={20} /> 入出庫履歴CSV出力
+        </button>
+      </div>
+      <div className="section-card">
         <div className="table-responsive">
           <table className="data-table">
             <thead>
@@ -676,10 +784,34 @@ const HistoryLog = ({ history }) => {
 const ShortageList = ({ items }) => {
   const lowStockItems = items.filter(item => item.currentStock < item.minStock);
 
+  const handleExport = () => {
+    const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const filename = `inventory_shortage_${today}.csv`;
+    const headers = ['品名', '現在庫数', '最低在庫数', '標準在庫数', '不足数', '単位', '発注先', '保管場所'];
+    
+    const rows = lowStockItems.map(item => [
+      item.name,
+      item.currentStock,
+      item.minStock,
+      item.targetStock,
+      item.targetStock - item.currentStock,
+      item.unit,
+      item.supplier,
+      item.location
+    ]);
+
+    downloadCSV(filename, headers, rows);
+  };
+
   return (
     <div className="shortage">
-      <div className="section-card">
+      <div className="action-bar">
         <h2>在庫不足リスト</h2>
+        <button className="export-btn" onClick={handleExport}>
+          <Download size={20} /> 在庫不足CSV出力
+        </button>
+      </div>
+      <div className="section-card">
         <p className="description">最低在庫数を下回っている物品を表示しています。</p>
         <div className="table-responsive">
           <table className="data-table">
