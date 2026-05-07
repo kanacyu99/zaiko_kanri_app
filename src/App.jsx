@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Package,
@@ -15,6 +15,8 @@ import {
   RefreshCw,
   Download,
   ClipboardCheck,
+  Database,
+  Upload,
 } from "lucide-react";
 
 const initialItems = [
@@ -84,6 +86,17 @@ const getToday = () => new Date().toISOString().split("T")[0];
 
 const getDateForFileName = () => getToday().replace(/-/g, "");
 
+const getDateTimeForFileName = () => {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mi = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}_${hh}${mi}${ss}`;
+};
+
 const csvEscape = (value) => {
   if (value === null || value === undefined) return "";
   const text = String(value);
@@ -104,6 +117,11 @@ const downloadCSV = (filename, headers, rows) => {
     type: "text/csv;charset=utf-8;",
   });
 
+  downloadBlob(blob, filename);
+  alert("CSVを出力しました。");
+};
+
+const downloadBlob = (blob, filename) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -112,8 +130,6 @@ const downloadCSV = (filename, headers, rows) => {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-
-  alert("CSVを出力しました。");
 };
 
 function App() {
@@ -181,6 +197,7 @@ function App() {
     { id: "history", label: "入出庫履歴", icon: <History size={20} /> },
     { id: "shortage", label: "在庫不足", icon: <AlertTriangle size={20} /> },
     { id: "stocktaking", label: "棚卸し", icon: <ClipboardCheck size={20} /> },
+    { id: "backup", label: "バックアップ", icon: <Database size={20} /> },
   ];
 
   return (
@@ -215,7 +232,6 @@ function App() {
             history={history}
             stocktakingLogs={stocktakingLogs}
             setActiveTab={setActiveTab}
-            getStatus={getStatus}
           />
         )}
 
@@ -246,6 +262,18 @@ function App() {
             setHistory={setHistory}
             stocktakingLogs={stocktakingLogs}
             setStocktakingLogs={setStocktakingLogs}
+          />
+        )}
+
+        {activeTab === "backup" && (
+          <Backup
+            items={items}
+            history={history}
+            stocktakingLogs={stocktakingLogs}
+            setItems={setItems}
+            setHistory={setHistory}
+            setStocktakingLogs={setStocktakingLogs}
+            setActiveTab={setActiveTab}
           />
         )}
       </main>
@@ -1738,6 +1766,170 @@ function Stocktaking({
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Backup({
+  items,
+  history,
+  stocktakingLogs,
+  setItems,
+  setHistory,
+  setStocktakingLogs,
+  setActiveTab,
+}) {
+  const fileInputRef = useRef(null);
+
+  const handleBackupExport = () => {
+    const backupData = {
+      appName: "在庫管理システム",
+      version: "1.0",
+      exportedAt: new Date().toISOString(),
+      items,
+      history,
+      stocktakingLogs,
+    };
+
+    const jsonText = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([jsonText], {
+      type: "application/json;charset=utf-8;",
+    });
+
+    downloadBlob(blob, `inventory_backup_${getDateTimeForFileName()}.json`);
+    alert("バックアップファイルを出力しました。");
+  };
+
+  const handleRestore = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = (loadEvent) => {
+      try {
+        const text = loadEvent.target.result;
+        const parsedData = JSON.parse(text);
+
+        const isValid =
+          Array.isArray(parsedData.items) &&
+          Array.isArray(parsedData.history) &&
+          Array.isArray(parsedData.stocktakingLogs);
+
+        if (!isValid) {
+          alert("バックアップファイルの形式が正しくありません。");
+          clearFileInput();
+          return;
+        }
+
+        const confirmed = window.confirm(
+          "現在の在庫データ、入出庫履歴、棚卸し履歴がバックアップデータで上書きされます。復元してよろしいですか？"
+        );
+
+        if (!confirmed) {
+          clearFileInput();
+          return;
+        }
+
+        setItems(parsedData.items);
+        setHistory(parsedData.history);
+        setStocktakingLogs(parsedData.stocktakingLogs);
+
+        localStorage.setItem("zaiko_items", JSON.stringify(parsedData.items));
+        localStorage.setItem("zaiko_history", JSON.stringify(parsedData.history));
+        localStorage.setItem(
+          "inventory_stocktaking_logs",
+          JSON.stringify(parsedData.stocktakingLogs)
+        );
+
+        alert("バックアップデータを復元しました。");
+        clearFileInput();
+        setActiveTab("dashboard");
+      } catch (error) {
+        alert("バックアップファイルを読み込めませんでした。");
+        clearFileInput();
+      }
+    };
+
+    reader.onerror = () => {
+      alert("バックアップファイルを読み込めませんでした。");
+      clearFileInput();
+    };
+
+    reader.readAsText(file, "utf-8");
+  };
+
+  const clearFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="backup-page">
+      <div className="action-bar">
+        <h2>バックアップ</h2>
+      </div>
+
+      <div className="backup-grid">
+        <div className="backup-card">
+          <div className="stat-label">物品マスタ件数</div>
+          <div className="stat-value">{items.length}</div>
+        </div>
+
+        <div className="backup-card">
+          <div className="stat-label">入出庫履歴件数</div>
+          <div className="stat-value">{history.length}</div>
+        </div>
+
+        <div className="backup-card">
+          <div className="stat-label">棚卸し履歴件数</div>
+          <div className="stat-value">{stocktakingLogs.length}</div>
+        </div>
+      </div>
+
+      <div className="section-card">
+        <h3>バックアップ出力</h3>
+        <p className="description">
+          バックアップ出力を行うと、現在の在庫データをJSONファイルとして保存できます。
+          PCの変更やブラウザのデータ消去に備えて、定期的にバックアップを保存してください。
+        </p>
+
+        <div className="backup-actions">
+          <button className="backup-btn" onClick={handleBackupExport}>
+            <Download size={20} />
+            バックアップ出力
+          </button>
+        </div>
+      </div>
+
+      <div className="section-card restore-section">
+        <h3>バックアップ復元</h3>
+        <p className="description">
+          バックアップ復元を行うと、保存していたJSONファイルから在庫データを復元できます。
+          現在のデータは上書きされます。
+        </p>
+
+        <div className="backup-warning">
+          注意：復元すると、現在の在庫データ・入出庫履歴・棚卸し履歴は、
+          選択したバックアップファイルの内容に置き換わります。
+        </div>
+
+        <div className="backup-actions">
+          <label className="restore-btn">
+            <Upload size={20} />
+            バックアップJSONを選択して復元
+            <input
+              ref={fileInputRef}
+              className="file-input"
+              type="file"
+              accept=".json,application/json"
+              onChange={handleRestore}
+            />
+          </label>
         </div>
       </div>
     </div>
