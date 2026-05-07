@@ -634,3 +634,91 @@ body {
     display: none !important;
   }
 }
+/* QR Print Layout Override */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .modal-overlay,
+  .modal-overlay * {
+    visibility: visible !important;
+  }
+
+  .modal-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .modal-content {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 8mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  .modal-content h3,
+  .modal-content > div > p,
+  .modal-content > div > div:first-of-type,
+  .modal-content > div > p.description,
+  .modal-content .form-actions,
+  .modal-content button,
+  .modal-content input,
+  .modal-content label {
+    display: none !important;
+  }
+
+  .qr-label-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6mm !important;
+    margin-top: 0 !important;
+  }
+
+  .qr-label-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    border: 1px solid #cccccc !important;
+    border-radius: 4px !important;
+    padding: 4mm !important;
+    background: #ffffff !important;
+    text-align: center !important;
+  }
+
+  .qr-label-card .font-bold {
+    display: block !important;
+    font-size: 11pt !important;
+    margin-bottom: 2mm !important;
+    color: #000000 !important;
+  }
+
+  .qr-label-card .description {
+    display: block !important;
+    font-size: 9pt !important;
+    margin-bottom: 2mm !important;
+    color: #000000 !important;
+  }
+
+  .qr-label-card img {
+    visibility: visible !important;
+    width: 28mm !important;
+    height: 28mm !important;
+    margin: 0 auto !important;
+    display: block !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+}
