@@ -523,3 +523,63 @@ body {
     flex-direction: column;
   }
 }
+
+/* Master CSV Import */
+.master-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.template-btn,
+.import-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.template-btn {
+  background-color: #0f766e;
+  color: #ffffff;
+}
+
+.template-btn:hover {
+  background-color: #115e59;
+}
+
+.import-btn {
+  background-color: #f97316;
+  color: #ffffff;
+}
+
+.import-btn:hover {
+  background-color: #ea580c;
+}
+
+.template-btn:active,
+.import-btn:active {
+  transform: translateY(1px);
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .master-actions {
+    justify-content: stretch;
+  }
+
+  .master-actions button {
+    width: 100%;
+  }
+}
