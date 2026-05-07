@@ -783,7 +783,7 @@ function Inbound({ items, setItems, setHistory }) {
               required
             >
               <option value="">選択してください</option>
-              {items.map((item) => (
+             {items.filter((item) => item.isActive !== false).map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
                 </option>
@@ -965,7 +965,7 @@ function Outbound({ items, setItems, setHistory }) {
               required
             >
               <option value="">選択してください</option>
-              {items.map((item) => (
+              {items.filter((item) => item.isActive !== false).map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}（現在庫：{item.currentStock} {item.unit}）
                 </option>
@@ -1988,7 +1988,7 @@ function Stocktaking({
               required
             >
               <option value="">選択してください</option>
-              {items.map((item) => (
+              {items.filter((item) => item.isActive !== false).map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}（現在庫：{item.currentStock} {item.unit}）
                 </option>
