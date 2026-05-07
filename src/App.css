@@ -583,3 +583,54 @@ body {
     width: 100%;
   }
 }
+/* QR Print Layout */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .modal-content,
+  .modal-content * {
+    visibility: visible;
+  }
+
+  .modal-overlay {
+    position: static;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .modal-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 24px;
+    overflow: visible;
+  }
+
+  .modal-content h3 {
+    text-align: center;
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+
+  .modal-content img {
+    width: 220px;
+    height: 220px;
+  }
+
+  .form-actions {
+    display: none !important;
+  }
+
+  .app-header,
+  .tab-navigation,
+  .app-footer {
+    display: none !important;
+  }
+}
