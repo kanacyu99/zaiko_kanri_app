@@ -132,6 +132,81 @@ const downloadBlob = (blob, filename) => {
   URL.revokeObjectURL(url);
 };
 
+const parseCSVText = (text) => {
+  const rows = [];
+  let currentRow = [];
+  let currentValue = "";
+  let insideQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (char === '"' && insideQuotes && nextChar === '"') {
+      currentValue += '"';
+      i += 1;
+    } else if (char === '"') {
+      insideQuotes = !insideQuotes;
+    } else if (char === "," && !insideQuotes) {
+      currentRow.push(currentValue);
+      currentValue = "";
+    } else if ((char === "\n" || char === "\r") && !insideQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        i += 1;
+      }
+
+      currentRow.push(currentValue);
+
+      if (currentRow.some((value) => value.trim() !== "")) {
+        rows.push(currentRow);
+      }
+
+      currentRow = [];
+      currentValue = "";
+    } else {
+      currentValue += char;
+    }
+  }
+
+  currentRow.push(currentValue);
+
+  if (currentRow.some((value) => value.trim() !== "")) {
+    rows.push(currentRow);
+  }
+
+  return rows;
+};
+
+const normalizeHeader = (value) => String(value || "").trim();
+
+const toNumberOrZero = (value) => {
+  const number = Number(String(value || "").replace(/,/g, "").trim());
+  return Number.isFinite(number) && number >= 0 ? number : 0;
+};
+
+const readFileAsText = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try {
+        const buffer = reader.result;
+        let text = new TextDecoder("utf-8").decode(buffer);
+
+        if (text.includes("�")) {
+          text = new TextDecoder("shift_jis").decode(buffer);
+        }
+
+        resolve(text.replace(/^\uFEFF/, ""));
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
+
 function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
@@ -972,6 +1047,8 @@ function Outbound({ items, setItems, setHistory }) {
 }
 
 function Master({ items, setItems }) {
+  const fileInputRef = useRef(null);
+
   const [isEditing, setIsEditing] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -1021,7 +1098,7 @@ function Master({ items, setItems }) {
       const newItem = {
         ...formData,
         id: Date.now().toString(),
-        currentStock: 0,
+        currentStock: Number(formData.currentStock || 0),
         minStock: Number(formData.minStock),
         targetStock: Number(formData.targetStock),
       };
@@ -1033,6 +1110,9 @@ function Master({ items, setItems }) {
             ? {
                 ...item,
                 ...formData,
+                currentStock: Number(
+                  formData.currentStock || item.currentStock || 0
+                ),
                 minStock: Number(formData.minStock),
                 targetStock: Number(formData.targetStock),
               }
@@ -1054,6 +1134,7 @@ function Master({ items, setItems }) {
       "標準在庫数",
       "発注先",
       "備考",
+      "現在庫数",
     ];
 
     const rows = items.map((item) => [
@@ -1065,25 +1146,193 @@ function Master({ items, setItems }) {
       item.targetStock,
       item.supplier,
       item.note,
+      item.currentStock,
     ]);
 
     downloadCSV(`inventory_master_${getDateForFileName()}.csv`, headers, rows);
+  };
+
+  const handleTemplateExport = () => {
+    const headers = [
+      "品名",
+      "分類",
+      "単位",
+      "保管場所",
+      "最低在庫数",
+      "標準在庫数",
+      "発注先",
+      "備考",
+      "現在庫数",
+    ];
+
+    downloadCSV(
+      `inventory_master_template_${getDateForFileName()}.csv`,
+      headers,
+      []
+    );
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportCSV = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    try {
+      const text = await readFileAsText(file);
+      const rows = parseCSVText(text);
+
+      if (rows.length < 2) {
+        alert("CSVに読込対象のデータがありません。");
+        event.target.value = "";
+        return;
+      }
+
+      const headers = rows[0].map(normalizeHeader);
+
+      const requiredHeaders = [
+        "品名",
+        "分類",
+        "単位",
+        "保管場所",
+        "最低在庫数",
+        "標準在庫数",
+        "発注先",
+        "備考",
+        "現在庫数",
+      ];
+
+      const hasAllHeaders = requiredHeaders.every((header) =>
+        headers.includes(header)
+      );
+
+      if (!hasAllHeaders) {
+        alert(
+          "CSVの形式が正しくありません。\nテンプレートCSVを出力し、その形式に合わせてください。"
+        );
+        event.target.value = "";
+        return;
+      }
+
+      const getValue = (row, headerName) => {
+        const index = headers.indexOf(headerName);
+        return index >= 0 ? String(row[index] || "").trim() : "";
+      };
+
+      const importedItems = rows
+        .slice(1)
+        .map((row, index) => {
+          const name = getValue(row, "品名");
+          const unit = getValue(row, "単位");
+
+          if (!name || !unit) {
+            return null;
+          }
+
+          return {
+            id: `import-${Date.now()}-${index}`,
+            name,
+            category: getValue(row, "分類"),
+            unit,
+            location: getValue(row, "保管場所"),
+            minStock: toNumberOrZero(getValue(row, "最低在庫数")),
+            targetStock: toNumberOrZero(getValue(row, "標準在庫数")),
+            supplier: getValue(row, "発注先"),
+            note: getValue(row, "備考"),
+            currentStock: toNumberOrZero(getValue(row, "現在庫数")),
+          };
+        })
+        .filter(Boolean);
+
+      if (importedItems.length === 0) {
+        alert("読込できる物品データがありません。品名と単位を確認してください。");
+        event.target.value = "";
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `${importedItems.length}件の物品マスタを読み込みます。\n同じ品名がある場合はCSVの内容で上書きし、新しい品名は追加します。\nよろしいですか？`
+      );
+
+      if (!confirmed) {
+        event.target.value = "";
+        return;
+      }
+
+      setItems((prevItems) => {
+        const updatedItems = [...prevItems];
+
+        importedItems.forEach((importedItem) => {
+          const existingIndex = updatedItems.findIndex(
+            (item) => item.name === importedItem.name
+          );
+
+          if (existingIndex >= 0) {
+            updatedItems[existingIndex] = {
+              ...updatedItems[existingIndex],
+              ...importedItem,
+              id: updatedItems[existingIndex].id,
+            };
+          } else {
+            updatedItems.push(importedItem);
+          }
+        });
+
+        return updatedItems;
+      });
+
+      alert("物品マスタCSVを読み込みました。");
+      event.target.value = "";
+    } catch (error) {
+      alert("CSVファイルを読み込めませんでした。");
+      event.target.value = "";
+    }
   };
 
   return (
     <div className="master-data">
       <div className="action-bar">
         <h2>物品マスタ登録</h2>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+
+        <div className="master-actions">
+          <button className="template-btn" onClick={handleTemplateExport}>
+            <Download size={20} />
+            テンプレートCSV出力
+          </button>
+
+          <button className="import-btn" onClick={handleImportClick}>
+            <Upload size={20} />
+            物品マスタCSV読込
+          </button>
+
+          <input
+            ref={fileInputRef}
+            className="hidden-file-input"
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleImportCSV}
+          />
+
           <button className="export-btn" onClick={handleExport}>
             <Download size={20} />
             物品マスタCSV出力
           </button>
+
           <button className="add-btn" onClick={handleAddNew}>
             <Plus size={20} />
             新規登録
           </button>
         </div>
+      </div>
+
+      <div className="section-card">
+        <p className="description">
+          テンプレートCSVを出力し、Excelで物品情報を入力してから「物品マスタCSV読込」で一括登録できます。
+          同じ品名がある場合はCSVの内容で上書きされます。
+        </p>
       </div>
 
       {isEditing && (
@@ -1153,7 +1402,10 @@ function Master({ items, setItems }) {
                   min="0"
                   value={formData.targetStock}
                   onChange={(event) =>
-                    setFormData({ ...formData, targetStock: event.target.value })
+                    setFormData({
+                      ...formData,
+                      targetStock: event.target.value,
+                    })
                   }
                   required
                 />
@@ -1165,6 +1417,20 @@ function Master({ items, setItems }) {
                   value={formData.supplier}
                   onChange={(event) =>
                     setFormData({ ...formData, supplier: event.target.value })
+                  }
+                />
+              </FormGroup>
+
+              <FormGroup label="現在庫数">
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.currentStock ?? 0}
+                  onChange={(event) =>
+                    setFormData({
+                      ...formData,
+                      currentStock: event.target.value,
+                    })
                   }
                 />
               </FormGroup>
@@ -1186,6 +1452,7 @@ function Master({ items, setItems }) {
                 >
                   キャンセル
                 </button>
+
                 <button type="submit" className="submit-btn">
                   <Save size={20} />
                   保存する
@@ -1206,10 +1473,12 @@ function Master({ items, setItems }) {
                 <th>単位</th>
                 <th>保管場所</th>
                 <th>最低 / 標準</th>
+                <th>現在庫</th>
                 <th>発注先</th>
                 <th>操作</th>
               </tr>
             </thead>
+
             <tbody>
               {items.map((item) => (
                 <tr key={item.id}>
@@ -1220,6 +1489,9 @@ function Master({ items, setItems }) {
                   <td>
                     {item.minStock} / {item.targetStock}
                   </td>
+                  <td className="font-bold">
+                    {item.currentStock} {item.unit}
+                  </td>
                   <td>{item.supplier}</td>
                   <td className="actions-cell">
                     <button
@@ -1228,6 +1500,7 @@ function Master({ items, setItems }) {
                     >
                       <Edit size={16} />
                     </button>
+
                     <button
                       className="icon-btn delete"
                       onClick={() => handleDelete(item.id)}
@@ -1240,7 +1513,7 @@ function Master({ items, setItems }) {
 
               {items.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="empty-message">
+                  <td colSpan="8" className="empty-message">
                     登録物品はありません。
                   </td>
                 </tr>
