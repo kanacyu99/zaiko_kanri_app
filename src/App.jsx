@@ -521,6 +521,7 @@ function Inventory({ items, getStatus }) {
   const [filterCategory, setFilterCategory] = useState("");
   const [filterLocation, setFilterLocation] = useState("");
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [showInactiveItems, setShowInactiveItems] = useState(false);
 
   const categories = [...new Set(items.map((item) => item.category))];
   const locations = [...new Set(items.map((item) => item.location))];
@@ -533,13 +534,20 @@ function Inventory({ items, getStatus }) {
       filterCategory === "" || item.category === filterCategory;
     const matchesLocation =
       filterLocation === "" || item.location === filterLocation;
-    const matchesLowStock =
-      !showLowStockOnly ||
-      Number(item.currentStock) < Number(item.minStock);
+   const matchesLowStock =
+  !showLowStockOnly ||
+  Number(item.currentStock) < Number(item.minStock);
 
-    return (
-      matchesSearch && matchesCategory && matchesLocation && matchesLowStock
-    );
+const matchesActive =
+  showInactiveItems || item.isActive !== false;
+
+return (
+  matchesSearch &&
+  matchesCategory &&
+  matchesLocation &&
+  matchesLowStock &&
+  matchesActive
+);
   });
 
   const handleExport = () => {
@@ -628,6 +636,14 @@ function Inventory({ items, getStatus }) {
               onChange={(event) => setShowLowStockOnly(event.target.checked)}
             />
             要発注のみ
+            <label className="checkbox-label">
+  <input
+    type="checkbox"
+    checked={showInactiveItems}
+    onChange={(event) => setShowInactiveItems(event.target.checked)}
+  />
+  無効物品も表示
+</label>
           </label>
         </div>
       </div>
