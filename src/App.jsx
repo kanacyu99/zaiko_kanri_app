@@ -326,7 +326,7 @@ function App() {
           <Master items={items} setItems={setItems} />
         )}
 
-        {activeTab === "history" && <HistoryLog history={history} />}
+        {activeTab === "history" && <HistoryLog history={history} setHistory={setHistory} />}
 
         {activeTab === "shortage" && <ShortageList items={items} />}
 
@@ -1523,10 +1523,13 @@ function Master({ items, setItems }) {
         </div>
       </div>
     </div>
-  );
+  );github.com/kanacyu99/zaiko_kanri_app/edit/main/src/App.jsx
 }
 
-function HistoryLog({ history }) {
+function HistoryLog({ history, setHistory }) {
+  const [editingId, setEditingId] = useState(null);
+  const [editingNote, setEditingNote] = useState("");
+
   const handleExport = () => {
     const headers = [
       "日付",
@@ -1558,6 +1561,33 @@ function HistoryLog({ history }) {
     return "status-yellow";
   };
 
+  const handleEditNote = (log) => {
+    setEditingId(log.id);
+    setEditingNote(log.note || "");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingNote("");
+  };
+
+  const handleSaveNote = (id) => {
+    setHistory((prevHistory) =>
+      prevHistory.map((log) =>
+        log.id === id
+          ? {
+              ...log,
+              note: editingNote,
+            }
+          : log
+      )
+    );
+
+    setEditingId(null);
+    setEditingNote("");
+    alert("訂正メモを保存しました。");
+  };
+
   return (
     <div className="history">
       <div className="action-bar">
@@ -1569,6 +1599,11 @@ function HistoryLog({ history }) {
       </div>
 
       <div className="section-card">
+        <p className="description">
+          入庫・出庫・棚卸し修正の履歴を確認できます。入力ミスや確認内容がある場合は、
+          「訂正メモ」から備考を追記・修正できます。
+        </p>
+
         <div className="table-responsive">
           <table className="data-table">
             <thead>
@@ -1579,7 +1614,8 @@ function HistoryLog({ history }) {
                 <th>数量</th>
                 <th>登録者/使用者</th>
                 <th>保管場所</th>
-                <th>備考</th>
+                <th>備考・訂正メモ</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -1596,12 +1632,59 @@ function HistoryLog({ history }) {
                     <td>{log.quantity}</td>
                     <td>{log.user}</td>
                     <td>{log.location}</td>
-                    <td>{log.note}</td>
+                    <td>
+                      {editingId === log.id ? (
+                        <textarea
+                          value={editingNote}
+                          onChange={(event) => setEditingNote(event.target.value)}
+                          placeholder="例：数量入力ミスのため確認済み、現物確認済み など"
+                          style={{
+                            width: "100%",
+                            minHeight: "70px",
+                            padding: "8px",
+                            border: "1px solid var(--border-color)",
+                            borderRadius: "8px",
+                            fontFamily: "inherit",
+                          }}
+                        />
+                      ) : (
+                        log.note || "—"
+                      )}
+                    </td>
+                    <td>
+                      {editingId === log.id ? (
+                        <div className="actions-cell">
+                          <button
+                            className="icon-btn edit"
+                            onClick={() => handleSaveNote(log.id)}
+                            title="保存"
+                          >
+                            <Save size={16} />
+                          </button>
+
+                          <button
+                            className="icon-btn delete"
+                            onClick={handleCancelEdit}
+                            title="キャンセル"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="icon-btn edit"
+                          onClick={() => handleEditNote(log)}
+                          title="訂正メモ"
+                        >
+                          <Edit size={16} />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="empty-message">
+                  <td colSpan="8" className="empty-message">
                     履歴はありません。
                   </td>
                 </tr>
