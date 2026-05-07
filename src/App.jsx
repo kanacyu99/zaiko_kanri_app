@@ -1409,13 +1409,22 @@ function Master({ items, setItems }) {
       </div>
 
       <div className="form-actions full-width">
-        <button
-          type="button"
-          className="cancel-btn"
-          onClick={() => setQrItem(null)}
-        >
-          閉じる
-        </button>
+  <button
+    type="button"
+    className="submit-btn"
+    onClick={() => window.print()}
+  >
+    印刷する
+  </button>
+
+  <button
+    type="button"
+    className="cancel-btn"
+    onClick={() => setQrItem(null)}
+  >
+    閉じる
+  </button>
+</div>
       </div>
     </div>
   </div>
