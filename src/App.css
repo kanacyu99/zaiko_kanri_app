@@ -443,3 +443,83 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Stocktaking Specific Styles */
+.readonly-input {
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+}
+
+.diff-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background-color: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.diff-label {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.text-blue { color: #2563eb; }
+
+.status-blue {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.row-highlight {
+  background-color: #fffaf0;
+}
+
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.export-btn:hover {
+  background-color: #059669;
+}
+
+/* Dashboard Flex Layout */
+.dashboard-flex {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.flex-1 {
+  flex: 1;
+  min-width: 300px;
+}
+
+.text-link-btn {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .dashboard-flex {
+    flex-direction: column;
+  }
+}

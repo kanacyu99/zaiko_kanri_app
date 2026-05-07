@@ -1,717 +1,525 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  LayoutDashboard, 
-  Package, 
-  PlusCircle, 
-  MinusCircle, 
-  List, 
-  History, 
-  AlertTriangle,
-  Search,
-  Filter,
-  Trash2,
-  Edit,
-  Save,
-  X,
-  Plus,
-  RefreshCw
-} from 'lucide-react';
-
-// Sample Data
-const initialItems = [
-  { id: '1', name: '軍手', category: '消耗品', unit: '双', location: '試験室棚A', minStock: 10, targetStock: 30, supplier: '○○商事', note: '', currentStock: 30 },
-  { id: '2', name: '試験用ポリ袋', category: '消耗品', unit: '袋', location: '試験室棚B', minStock: 5, targetStock: 20, supplier: '△△商店', note: '', currentStock: 20 },
-  { id: '3', name: 'pH試験紙', category: '試験用品', unit: '箱', location: '試験室棚C', minStock: 2, targetStock: 10, supplier: '□□科学', note: '', currentStock: 10 },
-  { id: '4', name: 'ヘルメット', category: '備品', unit: '個', location: '倉庫1', minStock: 3, targetStock: 10, supplier: '安全用品店', note: '', currentStock: 10 },
-  { id: '5', name: 'コピー用紙', category: '事務用品', unit: '箱', location: '事務所', minStock: 2, targetStock: 8, supplier: '文具店', note: '', currentStock: 8 },
-];
-
-function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [items, setItems] = useState(() => {
-    const saved = localStorage.getItem('zaiko_items');
-    return saved ? JSON.parse(saved) : initialItems;
-  });
-  const [history, setHistory] = useState(() => {
-    const saved = localStorage.getItem('zaiko_history');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // LocalStorage Persistence
-  useEffect(() => {
-    localStorage.setItem('zaiko_items', JSON.stringify(items));
-  }, [items]);
-
-  useEffect(() => {
-    localStorage.setItem('zaiko_history', JSON.stringify(history));
-  }, [history]);
-
-  // Helper to get status
-  const getStatus = (item) => {
-    if (item.currentStock < item.minStock) return { label: '要発注', color: 'status-red' };
-    if (item.currentStock < item.targetStock) return { label: '少なめ', color: 'status-yellow' };
-    return { label: '十分', color: 'status-green' };
-  };
-
-  // Reset Data
-  const resetData = () => {
-    if (window.confirm('全てのデータを初期化しますか？（物品マスタ、入出庫履歴がすべて消去されます）')) {
-      setItems(initialItems);
-      setHistory([]);
-      alert('初期化しました。');
-    }
-  };
-
-  // Tabs
-  const tabs = [
-    { id: 'dashboard', label: 'ダッシュボード', icon: <LayoutDashboard size={20} /> },
-    { id: 'inventory', label: '現在庫一覧', icon: <Package size={20} /> },
-    { id: 'inbound', label: '入庫登録', icon: <PlusCircle size={20} /> },
-    { id: 'outbound', label: '出庫登録', icon: <MinusCircle size={20} /> },
-    { id: 'master', label: '物品マスタ', icon: <List size={20} /> },
-    { id: 'history', label: '入出庫履歴', icon: <History size={20} /> },
-    { id: 'shortage', label: '在庫不足', icon: <AlertTriangle size={20} /> },
-  ];
-
-  return (
-    <div className="app-container">
-      <header className="app-header">
-        <h1>在庫管理システム</h1>
-        <button className="reset-btn" onClick={resetData} title="データを初期化">
-          <RefreshCw size={16} /> 初期化
-        </button>
-      </header>
-
-      <nav className="tab-navigation">
-        <div className="tab-list">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      <main className="content">
-        {activeTab === 'dashboard' && <Dashboard items={items} history={history} setActiveTab={setActiveTab} getStatus={getStatus} />}
-        {activeTab === 'inventory' && <Inventory items={items} getStatus={getStatus} />}
-        {activeTab === 'inbound' && <Inbound items={items} setItems={setItems} setHistory={setHistory} />}
-        {activeTab === 'outbound' && <Outbound items={items} setItems={setItems} setHistory={setHistory} />}
-        {activeTab === 'master' && <Master items={items} setItems={setItems} />}
-        {activeTab === 'history' && <HistoryLog history={history} />}
-        {activeTab === 'shortage' && <ShortageList items={items} />}
-      </main>
-
-      <footer className="app-footer">
-        &copy; 2024 在庫管理システム
-      </footer>
-    </div>
-  );
+:root {
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --bg-color: #f8fafc;
+  --card-bg: #ffffff;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --status-red-bg: #fee2e2;
+  --status-red-text: #b91c1c;
+  --status-yellow-bg: #fef9c3;
+  --status-yellow-text: #a16207;
+  --status-green-bg: #dcfce7;
+  --status-green-text: #15803d;
+  --danger-color: #ef4444;
 }
 
-// --- Components for each Tab ---
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-const Dashboard = ({ items, history, setActiveTab, getStatus }) => {
-  const lowStockItems = items.filter(item => item.currentStock < item.minStock);
-  const today = new Date().toISOString().split('T')[0];
-  const todayInbound = history.filter(h => h.type === '入庫' && h.date === today).length;
-  const todayOutbound = history.filter(h => h.type === '出庫' && h.date === today).length;
+body {
+  font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  line-height: 1.6;
+}
 
-  return (
-    <div className="dashboard">
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-label">登録物品数</div>
-          <div className="stat-value">{items.length}</div>
-        </div>
-        <div className="stat-card" onClick={() => setActiveTab('shortage')} style={{ cursor: 'pointer' }}>
-          <div className="stat-label">在庫不足件数</div>
-          <div className="stat-value text-red">{lowStockItems.length}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">本日の入庫</div>
-          <div className="stat-value">{todayInbound}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">本日の出庫</div>
-          <div className="stat-value">{todayOutbound}</div>
-        </div>
-      </div>
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 40px;
+}
 
-      <div className="section-card">
-        <h3>要発注リスト</h3>
-        {lowStockItems.length > 0 ? (
-          <div className="table-responsive">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>品名</th>
-                  <th>現在庫</th>
-                  <th>最低在庫</th>
-                  <th>不足数</th>
-                  <th>発注先</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lowStockItems.map(item => (
-                  <tr key={item.id}>
-                    <td>{item.name}</td>
-                    <td className="text-red">{item.currentStock} {item.unit}</td>
-                    <td>{item.minStock} {item.unit}</td>
-                    <td>{item.targetStock - item.currentStock} {item.unit}</td>
-                    <td>{item.supplier}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="empty-message">現在、在庫不足の物品はありません。</p>
-        )}
-      </div>
-    </div>
-  );
-};
+/* Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 20px;
+}
 
-const Inventory = ({ items, getStatus }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterLocation, setFilterLocation] = useState('');
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+.app-header h1 {
+  font-size: 1.5rem;
+  color: var(--primary-color);
+}
 
-  const categories = [...new Set(items.map(i => i.category))];
-  const locations = [...new Set(items.map(i => i.location))];
+.reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === '' || item.category === filterCategory;
-    const matchesLocation = filterLocation === '' || item.location === filterLocation;
-    const matchesLowStock = !showLowStockOnly || item.currentStock < item.minStock;
-    return matchesSearch && matchesCategory && matchesLocation && matchesLowStock;
-  });
+.reset-btn:hover {
+  background-color: #f1f5f9;
+  color: var(--danger-color);
+  border-color: var(--danger-color);
+}
 
-  return (
-    <div className="inventory">
-      <div className="filter-card">
-        <div className="search-box">
-          <Search size={18} className="search-icon" />
-          <input 
-            type="text" 
-            placeholder="品名で検索..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="filters">
-          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
-            <option value="">全ての分類</option>
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={filterLocation} onChange={(e) => setFilterLocation(e.target.value)}>
-            <option value="">全ての保管場所</option>
-            {locations.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <label className="checkbox-label">
-            <input 
-              type="checkbox" 
-              checked={showLowStockOnly}
-              onChange={(e) => setShowLowStockOnly(e.target.checked)}
-            />
-            要発注のみ
-          </label>
-        </div>
-      </div>
+/* Navigation */
+.tab-navigation {
+  margin-bottom: 24px;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
 
-      <div className="section-card">
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>品名</th>
-                <th>分類</th>
-                <th>現在庫数</th>
-                <th>単位</th>
-                <th>最低 / 標準</th>
-                <th>保管場所</th>
-                <th>発注先</th>
-                <th>状態</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map(item => {
-                const status = getStatus(item);
-                return (
-                  <tr key={item.id}>
-                    <td className="font-bold">{item.name}</td>
-                    <td>{item.category}</td>
-                    <td className="font-bold">{item.currentStock}</td>
-                    <td>{item.unit}</td>
-                    <td>{item.minStock} / {item.targetStock}</td>
-                    <td>{item.location}</td>
-                    <td>{item.supplier}</td>
-                    <td>
-                      <span className={`status-badge ${status.color}`}>{status.label}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
+.tab-list {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 4px;
+}
 
-const Inbound = ({ items, setItems, setHistory }) => {
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    itemId: '',
-    quantity: '',
-    supplier: '',
-    lotNumber: '',
-    location: '',
-    user: '',
-    note: ''
-  });
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: none;
+  background: var(--card-bg);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.itemId || !formData.quantity) {
-      alert('品名と数量は必須です。');
-      return;
-    }
+.tab-item:hover {
+  background-color: #f1f5f9;
+}
 
-    const item = items.find(i => i.id === formData.itemId);
-    const quantity = Number(formData.quantity);
+.tab-item.active {
+  background-color: var(--primary-color);
+  color: white;
+}
 
-    // Update Item Stock
-    const updatedItems = items.map(i => {
-      if (i.id === formData.itemId) {
-        return { ...i, currentStock: i.currentStock + quantity };
-      }
-      return i;
-    });
-    setItems(updatedItems);
+/* Main Content */
+.content {
+  min-height: 60vh;
+}
 
-    // Add History
-    const newHistory = {
-      id: Date.now(),
-      type: '入庫',
-      date: formData.date,
-      itemName: item.name,
-      quantity: quantity,
-      user: formData.user || '未入力',
-      location: formData.location || item.location,
-      note: formData.note,
-      details: {
-        supplier: formData.supplier,
-        lotNumber: formData.lotNumber
-      }
-    };
-    setHistory(prev => [newHistory, ...prev]);
+/* Section Cards */
+.section-card {
+  background: var(--card-bg);
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+}
 
-    alert('入庫登録を完了しました。');
-    setFormData({
-      ...formData,
-      itemId: '',
-      quantity: '',
-      lotNumber: '',
-      note: ''
-    });
-  };
+.section-card h2, .section-card h3 {
+  margin-bottom: 16px;
+  font-size: 1.25rem;
+}
 
-  return (
-    <div className="form-container">
-      <div className="section-card">
-        <h2>入庫登録</h2>
-        <form onSubmit={handleSubmit} className="entry-form">
-          <div className="form-group">
-            <label>入庫日</label>
-            <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} required />
-          </div>
-          <div className="form-group">
-            <label>品名</label>
-            <select value={formData.itemId} onChange={e => {
-              const selectedItem = items.find(i => i.id === e.target.value);
-              setFormData({...formData, itemId: e.target.value, supplier: selectedItem?.supplier || ''});
-            }} required>
-              <option value="">選択してください</option>
-              {items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>数量</label>
-            <input type="number" min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} required />
-          </div>
-          <div className="form-group">
-            <label>納入業者</label>
-            <input type="text" value={formData.supplier} onChange={e => setFormData({...formData, supplier: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label>ロット番号</label>
-            <input type="text" value={formData.lotNumber} onChange={e => setFormData({...formData, lotNumber: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label>保管場所</label>
-            <input type="text" placeholder="空欄時はマスタ設定を使用" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label>登録者</label>
-            <input type="text" value={formData.user} onChange={e => setFormData({...formData, user: e.target.value})} />
-          </div>
-          <div className="form-group full-width">
-            <label>備考</label>
-            <textarea value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})}></textarea>
-          </div>
-          <div className="form-actions full-width">
-            <button type="submit" className="submit-btn"><PlusCircle size={20} /> 入庫登録する</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+/* Dashboard Stats */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
 
-const Outbound = ({ items, setItems, setHistory }) => {
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    itemId: '',
-    quantity: '',
-    user: '',
-    department: '',
-    purpose: '',
-    location: '',
-    note: ''
-  });
+.stat-card {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  text-align: center;
+}
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.itemId || !formData.quantity) {
-      alert('品名と数量は必須です。');
-      return;
-    }
+.stat-label {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin-bottom: 8px;
+}
 
-    const item = items.find(i => i.id === formData.itemId);
-    const quantity = Number(formData.quantity);
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary-color);
+}
 
-    if (item.currentStock < quantity) {
-      alert(`在庫不足です。現在の在庫: ${item.currentStock} ${item.unit}`);
-      return;
-    }
+.stat-value.text-red {
+  color: var(--danger-color);
+}
 
-    // Update Item Stock
-    const updatedItems = items.map(i => {
-      if (i.id === formData.itemId) {
-        return { ...i, currentStock: i.currentStock - quantity };
-      }
-      return i;
-    });
-    setItems(updatedItems);
+/* Forms */
+.entry-form {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
 
-    // Add History
-    const newHistory = {
-      id: Date.now(),
-      type: '出庫',
-      date: formData.date,
-      itemName: item.name,
-      quantity: quantity,
-      user: formData.user || '未入力',
-      location: formData.location || item.location,
-      note: formData.note,
-      details: {
-        department: formData.department,
-        purpose: formData.purpose
-      }
-    };
-    setHistory(prev => [newHistory, ...prev]);
+@media (max-width: 640px) {
+  .entry-form {
+    grid-template-columns: 1fr;
+  }
+}
 
-    alert('出庫登録を完了しました。');
-    setFormData({
-      ...formData,
-      itemId: '',
-      quantity: '',
-      note: ''
-    });
-  };
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
-  return (
-    <div className="form-container">
-      <div className="section-card">
-        <h2>出庫登録</h2>
-        <form onSubmit={handleSubmit} className="entry-form">
-          <div className="form-group">
-            <label>出庫日</label>
-            <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} required />
-          </div>
-          <div className="form-group">
-            <label>品名</label>
-            <select value={formData.itemId} onChange={e => setFormData({...formData, itemId: e.target.value})} required>
-              <option value="">選択してください</option>
-              {items.map(item => (
-                <option key={item.id} value={item.id}>
-                  {item.name} (現在庫: {item.currentStock} {item.unit})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>数量</label>
-            <input type="number" min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} required />
-          </div>
-          <div className="form-group">
-            <label>使用者</label>
-            <input type="text" value={formData.user} onChange={e => setFormData({...formData, user: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label>使用部署</label>
-            <input type="text" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label>使用目的</label>
-            <input type="text" value={formData.purpose} onChange={e => setFormData({...formData, purpose: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label>保管場所</label>
-            <input type="text" placeholder="空欄時はマスタ設定を使用" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
-          </div>
-          <div className="form-group full-width">
-            <label>備考</label>
-            <textarea value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})}></textarea>
-          </div>
-          <div className="form-actions full-width">
-            <button type="submit" className="submit-btn outbound-btn"><MinusCircle size={20} /> 出庫登録する</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
 
-const Master = ({ items, setItems }) => {
-  const [isEditing, setIsEditing] = useState(null); // id of item being edited or 'new'
-  const [formData, setFormData] = useState({
-    name: '', category: '', unit: '', location: '', minStock: '', targetStock: '', supplier: '', note: ''
-  });
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
 
-  const handleEdit = (item) => {
-    setIsEditing(item.id);
-    setFormData({ ...item });
-  };
+.form-group input, 
+.form-group select, 
+.form-group textarea {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+}
 
-  const handleAddNew = () => {
-    setIsEditing('new');
-    setFormData({
-      name: '', category: '', unit: '', location: '', minStock: 0, targetStock: 0, supplier: '', note: ''
-    });
-  };
+.form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
 
-  const handleDelete = (id) => {
-    if (window.confirm('この物品を削除しますか？在庫データも失われます。')) {
-      setItems(items.filter(i => i.id !== id));
-    }
-  };
+.submit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  width: 100%;
+}
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (isEditing === 'new') {
-      const newItem = {
-        ...formData,
-        id: Date.now().toString(),
-        currentStock: 0,
-        minStock: Number(formData.minStock),
-        targetStock: Number(formData.targetStock)
-      };
-      setItems([...items, newItem]);
-    } else {
-      setItems(items.map(i => i.id === isEditing ? { 
-        ...i, 
-        ...formData,
-        minStock: Number(formData.minStock),
-        targetStock: Number(formData.targetStock)
-      } : i));
-    }
-    setIsEditing(null);
-  };
+.submit-btn:hover {
+  background-color: var(--primary-hover);
+}
 
-  return (
-    <div className="master-data">
-      <div className="action-bar">
-        <h2>物品マスタ登録</h2>
-        <button className="add-btn" onClick={handleAddNew}><Plus size={20} /> 新規登録</button>
-      </div>
+.outbound-btn {
+  background-color: #f59e0b;
+}
 
-      {isEditing && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3>{isEditing === 'new' ? '物品の新規登録' : '物品の編集'}</h3>
-            <form onSubmit={handleSubmit} className="entry-form">
-              <div className="form-group">
-                <label>品名</label>
-                <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
-              </div>
-              <div className="form-group">
-                <label>分類</label>
-                <input type="text" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
-              </div>
-              <div className="form-group">
-                <label>単位</label>
-                <input type="text" placeholder="個、袋、箱など" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} required />
-              </div>
-              <div className="form-group">
-                <label>保管場所</label>
-                <input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
-              </div>
-              <div className="form-group">
-                <label>最低在庫数</label>
-                <input type="number" min="0" value={formData.minStock} onChange={e => setFormData({...formData, minStock: e.target.value})} required />
-              </div>
-              <div className="form-group">
-                <label>標準在庫数</label>
-                <input type="number" min="0" value={formData.targetStock} onChange={e => setFormData({...formData, targetStock: e.target.value})} required />
-              </div>
-              <div className="form-group">
-                <label>発注先</label>
-                <input type="text" value={formData.supplier} onChange={e => setFormData({...formData, supplier: e.target.value})} />
-              </div>
-              <div className="form-group full-width">
-                <label>備考</label>
-                <textarea value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})}></textarea>
-              </div>
-              <div className="form-actions full-width">
-                <button type="button" className="cancel-btn" onClick={() => setIsEditing(null)}>キャンセル</button>
-                <button type="submit" className="submit-btn"><Save size={20} /> 保存する</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+.outbound-btn:hover {
+  background-color: #d97706;
+}
 
-      <div className="section-card">
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>品名</th>
-                <th>分類</th>
-                <th>単位</th>
-                <th>保管場所</th>
-                <th>最低 / 標準</th>
-                <th>発注先</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(item => (
-                <tr key={item.id}>
-                  <td className="font-bold">{item.name}</td>
-                  <td>{item.category}</td>
-                  <td>{item.unit}</td>
-                  <td>{item.location}</td>
-                  <td>{item.minStock} / {item.targetStock}</td>
-                  <td>{item.supplier}</td>
-                  <td className="actions-cell">
-                    <button className="icon-btn edit" onClick={() => handleEdit(item)}><Edit size={16} /></button>
-                    <button className="icon-btn delete" onClick={() => handleDelete(item.id)}><Trash2 size={16} /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
+/* Tables */
+.table-responsive {
+  overflow-x: auto;
+  margin-top: 10px;
+}
 
-const HistoryLog = ({ history }) => {
-  return (
-    <div className="history">
-      <div className="section-card">
-        <h2>入出庫履歴</h2>
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>日付</th>
-                <th>区分</th>
-                <th>品名</th>
-                <th>数量</th>
-                <th>登録者/使用者</th>
-                <th>保管場所</th>
-                <th>備考</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.length > 0 ? history.map(log => (
-                <tr key={log.id}>
-                  <td>{log.date}</td>
-                  <td>
-                    <span className={`status-badge ${log.type === '入庫' ? 'status-green' : 'status-red'}`}>
-                      {log.type}
-                    </span>
-                  </td>
-                  <td className="font-bold">{log.itemName}</td>
-                  <td>{log.quantity}</td>
-                  <td>{log.user}</td>
-                  <td>{log.location}</td>
-                  <td>{log.note}</td>
-                </tr>
-              )) : (
-                <tr><td colSpan="7" className="empty-message">履歴はありません。</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
 
-const ShortageList = ({ items }) => {
-  const lowStockItems = items.filter(item => item.currentStock < item.minStock);
+.data-table th, .data-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
 
-  return (
-    <div className="shortage">
-      <div className="section-card">
-        <h2>在庫不足リスト</h2>
-        <p className="description">最低在庫数を下回っている物品を表示しています。</p>
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>品名</th>
-                <th>現在庫数</th>
-                <th>最低在庫数</th>
-                <th>不足数</th>
-                <th>発注先</th>
-                <th>保管場所</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lowStockItems.length > 0 ? lowStockItems.map(item => (
-                <tr key={item.id}>
-                  <td className="font-bold">{item.name}</td>
-                  <td className="text-red font-bold">{item.currentStock} {item.unit}</td>
-                  <td>{item.minStock} {item.unit}</td>
-                  <td className="font-bold">{item.targetStock - item.currentStock} {item.unit}</td>
-                  <td>{item.supplier}</td>
-                  <td>{item.location}</td>
-                </tr>
-              )) : (
-                <tr><td colSpan="6" className="empty-message">在庫不足の物品はありません。</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
+.data-table th {
+  background-color: #f1f5f9;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
 
-export default App;
+.data-table tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-red {
+  background-color: var(--status-red-bg);
+  color: var(--status-red-text);
+}
+
+.status-yellow {
+  background-color: var(--status-yellow-bg);
+  color: var(--status-yellow-text);
+}
+
+.status-green {
+  background-color: var(--status-green-bg);
+  color: var(--status-green-text);
+}
+
+/* Filters */
+.filter-card {
+  background: var(--card-bg);
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.search-box input {
+  width: 100%;
+  padding: 10px 10px 10px 40px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filters select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: white;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal-content {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Action Bar */
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancel-btn {
+  padding: 12px 20px;
+  background: #e2e8f0;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Utility */
+.font-bold { font-weight: 700; }
+.text-red { color: var(--danger-color); }
+.empty-message {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.actions-cell {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn.edit { color: var(--primary-color); }
+.icon-btn.delete { color: var(--danger-color); }
+
+.app-footer {
+  text-align: center;
+  margin-top: 40px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* Scrollbar styling for touch devices */
+::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Stocktaking Specific Styles */
+.readonly-input {
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+}
+
+.diff-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background-color: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.diff-label {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.text-blue { color: #2563eb; }
+
+.status-blue {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.row-highlight {
+  background-color: #fffaf0;
+}
+
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.export-btn:hover {
+  background-color: #059669;
+}
+
+/* Dashboard Flex Layout */
+.dashboard-flex {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.flex-1 {
+  flex: 1;
+  min-width: 300px;
+}
+
+.text-link-btn {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .dashboard-flex {
+    flex-direction: column;
+  }
+}
