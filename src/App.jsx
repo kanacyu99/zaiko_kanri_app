@@ -1379,7 +1379,7 @@ function Master({ items, setItems }) {
 </label>
       </div>
 
-      {qrItem && (
+{qrItem && (
   <div className="modal-overlay">
     <div className="modal-content">
       <h3>QRコード表示</h3>
@@ -1389,10 +1389,11 @@ function Master({ items, setItems }) {
         <p className="description">保管場所：{qrItem.location}</p>
 
         <img
-          src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-            createQrText(qrItem)
-          )}`}
-          alt={`${qrItem.name}のQRコード`}
+          src={
+            "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" +
+            encodeURIComponent(createQrText(qrItem))
+          }
+          alt={qrItem.name + "のQRコード"}
           style={{
             margin: "16px auto",
             display: "block",
@@ -1409,22 +1410,21 @@ function Master({ items, setItems }) {
       </div>
 
       <div className="form-actions full-width">
-  <button
-    type="button"
-    className="submit-btn"
-    onClick={() => window.print()}
-  >
-    印刷する
-  </button>
+        <button
+          type="button"
+          className="submit-btn"
+          onClick={() => window.print()}
+        >
+          印刷する
+        </button>
 
-  <button
-    type="button"
-    className="cancel-btn"
-    onClick={() => setQrItem(null)}
-  >
-    閉じる
-  </button>
-</div>
+        <button
+          type="button"
+          className="cancel-btn"
+          onClick={() => setQrItem(null)}
+        >
+          閉じる
+        </button>
       </div>
     </div>
   </div>
