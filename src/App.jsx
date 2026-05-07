@@ -1066,6 +1066,7 @@ function Master({ items, setItems }) {
   const fileInputRef = useRef(null);
 
   const [showInactiveItems, setShowInactiveItems] = useState(false);
+  const [qrItem, setQrItem] = useState(null);
   const [isEditing, setIsEditing] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -1203,6 +1204,12 @@ function Master({ items, setItems }) {
   const displayedItems = showInactiveItems
   ? items
   : items.filter((item) => item.isActive !== false);
+  const createQrText = (item) =>
+  JSON.stringify({
+    itemId: item.id,
+    name: item.name,
+    location: item.location,
+  });
   const handleImportCSV = async (event) => {
     const file = event.target.files?.[0];
 
@@ -1372,6 +1379,47 @@ function Master({ items, setItems }) {
 </label>
       </div>
 
+      {qrItem && (
+  <div className="modal-overlay">
+    <div className="modal-content">
+      <h3>QRコード表示</h3>
+
+      <div style={{ textAlign: "center", padding: "20px" }}>
+        <p className="font-bold">{qrItem.name}</p>
+        <p className="description">保管場所：{qrItem.location}</p>
+
+        <img
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+            createQrText(qrItem)
+          )}`}
+          alt={`${qrItem.name}のQRコード`}
+          style={{
+            margin: "16px auto",
+            display: "block",
+            border: "1px solid var(--border-color)",
+            borderRadius: "8px",
+            padding: "8px",
+            background: "#ffffff",
+          }}
+        />
+
+        <p className="description">
+          このQRコードには、物品ID・品名・保管場所の情報が入っています。
+        </p>
+      </div>
+
+      <div className="form-actions full-width">
+        <button
+          type="button"
+          className="cancel-btn"
+          onClick={() => setQrItem(null)}
+        >
+          閉じる
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {isEditing && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -1543,6 +1591,13 @@ function Master({ items, setItems }) {
                     >
                       <Edit size={16} />
                     </button>
+                    <button
+  className="icon-btn edit"
+  onClick={() => setQrItem(item)}
+  title="QR表示"
+>
+  QR
+</button>
 
                     <button
                       className="icon-btn delete"
