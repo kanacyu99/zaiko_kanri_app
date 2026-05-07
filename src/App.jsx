@@ -1067,6 +1067,7 @@ function Master({ items, setItems }) {
 
   const [showInactiveItems, setShowInactiveItems] = useState(false);
   const [qrItem, setQrItem] = useState(null);
+  const [qrCopies, setQrCopies] = useState(6);
   const [isEditing, setIsEditing] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -1388,21 +1389,72 @@ function Master({ items, setItems }) {
         <p className="font-bold">{qrItem.name}</p>
         <p className="description">保管場所：{qrItem.location}</p>
 
-        <img
-          src={
-            "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" +
-            encodeURIComponent(createQrText(qrItem))
-          }
-          alt={qrItem.name + "のQRコード"}
-          style={{
-            margin: "16px auto",
-            display: "block",
-            border: "1px solid var(--border-color)",
-            borderRadius: "8px",
-            padding: "8px",
-            background: "#ffffff",
-          }}
-        />
+        <div style={{ margin: "12px 0" }}>
+  <label>
+    印刷枚数：
+    <input
+      type="number"
+      min="1"
+      max="24"
+      value={qrCopies}
+      onChange={(event) =>
+        setQrCopies(Math.max(1, Math.min(24, Number(event.target.value) || 1)))
+      }
+      style={{
+        width: "80px",
+        marginLeft: "8px",
+        padding: "6px",
+        border: "1px solid var(--border-color)",
+        borderRadius: "6px",
+      }}
+    />
+  </label>
+</div>
+        <div
+  className="qr-label-grid"
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: "12px",
+    marginTop: "16px",
+  }}
+>
+  {Array.from({ length: qrCopies }).map((_, index) => (
+    <div
+      key={index}
+      className="qr-label-card"
+      style={{
+        border: "1px solid var(--border-color)",
+        borderRadius: "8px",
+        padding: "10px",
+        background: "#ffffff",
+        textAlign: "center",
+      }}
+    >
+      <div className="font-bold" style={{ fontSize: "14px" }}>
+        {qrItem.name}
+      </div>
+
+      <div className="description" style={{ fontSize: "12px", marginBottom: "6px" }}>
+        {qrItem.location}
+      </div>
+
+      <img
+        src={
+          "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" +
+          encodeURIComponent(createQrText(qrItem))
+        }
+        alt={qrItem.name + "のQRコード"}
+        style={{
+          width: "120px",
+          height: "120px",
+          display: "block",
+          margin: "0 auto",
+        }}
+      />
+    </div>
+  ))}
+</div>
 
         <p className="description">
           このQRコードには、物品ID・品名・保管場所の情報が入っています。
