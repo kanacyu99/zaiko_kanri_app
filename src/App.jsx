@@ -1080,11 +1080,17 @@ function Master({ items, setItems }) {
     setFormData({ ...item });
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("この物品を削除しますか？")) {
-      setItems(items.filter((item) => item.id !== id));
-    }
-  };
+ const handleDelete = (id) => {
+  if (window.confirm("この物品を無効化しますか？\n無効化しても履歴は残ります。")) {
+    setItems(
+      items.map((item) =>
+        item.id === id
+          ? { ...item, isActive: false }
+          : item
+      )
+    );
+  }
+};
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -1098,6 +1104,7 @@ function Master({ items, setItems }) {
       const newItem = {
         ...formData,
         id: Date.now().toString(),
+        isActive: true,
         currentStock: Number(formData.currentStock || 0),
         minStock: Number(formData.minStock),
         targetStock: Number(formData.targetStock),
@@ -1234,6 +1241,7 @@ function Master({ items, setItems }) {
 
           return {
             id: `import-${Date.now()}-${index}`,
+            isActive: true,
             name,
             category: getValue(row, "分類"),
             unit,
@@ -1475,6 +1483,7 @@ function Master({ items, setItems }) {
                 <th>最低 / 標準</th>
                 <th>現在庫</th>
                 <th>発注先</th>
+                <th>状態</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -1493,6 +1502,11 @@ function Master({ items, setItems }) {
                     {item.currentStock} {item.unit}
                   </td>
                   <td>{item.supplier}</td>
+                  <td>
+  <span className={`status-badge ${item.isActive === false ? "status-red" : "status-green"}`}>
+    {item.isActive === false ? "無効" : "有効"}
+  </span>
+</td>
                   <td className="actions-cell">
                     <button
                       className="icon-btn edit"
@@ -1513,7 +1527,7 @@ function Master({ items, setItems }) {
 
               {items.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="empty-message">
+                 <td colSpan="9" className="empty-message">
                     登録物品はありません。
                   </td>
                 </tr>
