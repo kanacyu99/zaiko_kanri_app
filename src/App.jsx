@@ -1065,6 +1065,7 @@ function Outbound({ items, setItems, setHistory }) {
 function Master({ items, setItems }) {
   const fileInputRef = useRef(null);
 
+  const [showInactiveItems, setShowInactiveItems] = useState(false);
   const [isEditing, setIsEditing] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -1199,6 +1200,9 @@ function Master({ items, setItems }) {
     fileInputRef.current?.click();
   };
 
+  const displayedItems = showInactiveItems
+  ? items
+  : items.filter((item) => item.isActive !== false);
   const handleImportCSV = async (event) => {
     const file = event.target.files?.[0];
 
@@ -1357,6 +1361,15 @@ function Master({ items, setItems }) {
           テンプレートCSVを出力し、Excelで物品情報を入力してから「物品マスタCSV読込」で一括登録できます。
           同じ品名がある場合はCSVの内容で上書きされます。
         </p>
+        
+        <label className="checkbox-label">
+  <input
+    type="checkbox"
+    checked={showInactiveItems}
+    onChange={(event) => setShowInactiveItems(event.target.checked)}
+  />
+  無効物品も表示
+</label>
       </div>
 
       {isEditing && (
@@ -1505,7 +1518,7 @@ function Master({ items, setItems }) {
             </thead>
 
             <tbody>
-              {items.map((item) => (
+              {displayedItems.map((item) => (
                 <tr key={item.id}>
                   <td className="font-bold">{item.name}</td>
                   <td>{item.category}</td>
@@ -1541,7 +1554,7 @@ function Master({ items, setItems }) {
                 </tr>
               ))}
 
-              {items.length === 0 && (
+              {displayedItems.length === 0 && (
                 <tr>
                  <td colSpan="9" className="empty-message">
                     登録物品はありません。
